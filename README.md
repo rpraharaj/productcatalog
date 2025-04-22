@@ -1,2 +1,2 @@
-# productcatalog
-Product Catalo Managaer
+#Visual Product Catalog
+Product Catalog Manager
