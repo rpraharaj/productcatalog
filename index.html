@@ -492,8 +492,10 @@ function showDetails(id) {
     </div>
   `;
   // Setup Edit/Delete buttons
-  document.getElementById('detailsEditBtn').onclick = () => { closeDetailsModal(); editCapability(id); };
-  document.getElementById('detailsDeleteBtn').onclick = () => { closeDetailsModal(); deleteCapability(id); };
+  setTimeout(() => {
+    document.getElementById('detailsEditBtn').onclick = () => editCapability(id);
+    document.getElementById('detailsDeleteBtn').onclick = () => deleteCapability(id);
+  }, 0);
 }
 function closeDetailsModal() {
   document.getElementById('capabilityDetailsModal').classList.add('hidden');
@@ -610,7 +612,86 @@ document.getElementById('themeToggleBtn').onclick = () => {
   const saved = localStorage.getItem('theme');
   setTheme(saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches));
 })();
-// ========== Export/Import JSON ==========
+// ========== Export/Import CSV ==========
+document.getElementById('exportCsvBtn').onclick = () => {
+  const headers = ['id','title','description','status','domain','function','module','category','tags','owners','lastUpdated','priority'];
+  let csv = headers.join(',') + '\n';
+  for (const cap of capabilities) {
+    csv += headers.map(h => {
+      let val = cap[h];
+      if (Array.isArray(val)) val = val.join('|');
+      if (typeof val === 'undefined' || val === null) val = '';
+      val = String(val).replace(/"/g,'""').replace(/\n/g,' ');
+      return '"'+val+'"';
+    }).join(',') + '\n';
+  }
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'product_catalog.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+// ========== Import CSV (robust) ==========
+document.getElementById('importCsvBtn').onclick = () => {
+  document.getElementById('hiddenFileInput').accept = '.csv';
+  document.getElementById('hiddenFileInput').click();
+};
+function importFromCsv(text) {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return showToast('CSV file is empty!');
+  const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim());
+  const arr = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCsvLine(lines[i]);
+    if (values.length !== headers.length) continue;
+    const obj = {};
+    for (let j = 0; j < headers.length; j++) {
+      let val = values[j] ? values[j].replace(/"/g,'').trim() : '';
+      obj[headers[j]] = val;
+    }
+    // Robust mapping and defaults
+    arr.push({
+      id: obj.id || uuidv4(),
+      title: obj.title || '',
+      description: obj.description || '',
+      status: obj.status || 'Idea',
+      domain: obj.domain || '',
+      function: obj.function || '',
+      module: obj.module || '',
+      category: obj.category || '',
+      tags: obj.tags ? obj.tags.split('|').map(t=>t.trim()).filter(Boolean) : [],
+      owners: obj.owners ? obj.owners.split('|').map(t=>t.trim()).filter(Boolean) : [],
+      lastUpdated: obj.lastUpdated || nowISO(),
+      priority: obj.priority || 'Medium'
+    });
+  }
+  capabilities = arr;
+  saveToStorage();
+  renderGrid();
+  renderAnalytics();
+  showToast('Imported CSV!');
+}
+function parseCsvLine(line) {
+  // Handles quoted fields, commas, etc.
+  const result = [];
+  let cur = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (c === ',' && !inQuotes) {
+      result.push(cur); cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+// ========== Export/Import JSON (robust) ==========
 document.getElementById('exportJsonBtn').onclick = () => {
   const blob = new Blob([JSON.stringify(capabilities,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -633,14 +714,28 @@ document.getElementById('hiddenFileInput').onchange = function(e) {
   reader.onload = function(evt) {
     try {
       if (isJson) {
-        const arr = JSON.parse(evt.target.result);
-        if (Array.isArray(arr)) {
-          capabilities = arr;
-          saveToStorage();
-          renderGrid();
-          renderAnalytics();
-          showToast('Imported JSON!');
-        } else throw new Error('Invalid JSON format');
+        let arr = JSON.parse(evt.target.result);
+        if (!Array.isArray(arr)) throw new Error('Invalid JSON format');
+        // Robust migration/validation
+        arr = arr.map(obj => ({
+          id: obj.id || uuidv4(),
+          title: obj.title || '',
+          description: obj.description || '',
+          status: obj.status || 'Idea',
+          domain: obj.domain || '',
+          function: obj.function || '',
+          module: obj.module || '',
+          category: obj.category || '',
+          tags: Array.isArray(obj.tags) ? obj.tags : (typeof obj.tags === 'string' && obj.tags ? obj.tags.split('|').map(t=>t.trim()).filter(Boolean) : []),
+          owners: Array.isArray(obj.owners) ? obj.owners : (typeof obj.owners === 'string' && obj.owners ? obj.owners.split('|').map(t=>t.trim()).filter(Boolean) : []),
+          lastUpdated: obj.lastUpdated || nowISO(),
+          priority: obj.priority || 'Medium'
+        }));
+        capabilities = arr;
+        saveToStorage();
+        renderGrid();
+        renderAnalytics();
+        showToast('Imported JSON!');
       } else if (isCsv) {
         importFromCsv(evt.target.result);
       }
@@ -651,55 +746,6 @@ document.getElementById('hiddenFileInput').onchange = function(e) {
   reader.readAsText(file);
   e.target.value = '';
 };
-// ========== Export/Import CSV ==========
-document.getElementById('exportCsvBtn').onclick = () => {
-  const headers = ['id','title','description','status','domain','function','module','category','tags','owners','lastUpdated','priority'];
-  let csv = headers.join(',') + '\n';
-  for (const cap of capabilities) {
-    csv += [cap.id,cap.title.replace(/"/g,'""'),cap.description.replace(/"/g,'""'),cap.status,cap.domain,cap.function,cap.module,cap.category,cap.tags.join('|'),cap.owners.join('|'),cap.lastUpdated,cap.priority].map(v => '"'+v.replace(/\n/g,' ')+'"').join(',') + '\n';
-  }
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'product_catalog.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-};
-document.getElementById('importCsvBtn').onclick = () => {
-  document.getElementById('hiddenFileInput').accept = '.csv';
-  document.getElementById('hiddenFileInput').click();
-};
-function importFromCsv(text) {
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  const headers = lines[0].split(',').map(h => h.replace(/"/g,''));
-  const arr = [];
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCsvLine(lines[i]);
-    if (values.length !== headers.length) continue;
-    const obj = {};
-    for (let j = 0; j < headers.length; j++) {
-      let val = values[j].replace(/"/g,'');
-      if (headers[j] === 'tags' || headers[j] === 'owners') val = val ? val.split('|').map(v=>v.trim()) : [];
-      obj[headers[j]] = val;
-    }
-    arr.push(obj);
-  }
-  capabilities = arr;
-  saveToStorage();
-  renderGrid();
-  renderAnalytics();
-  showToast('Imported CSV!');
-}
-function parseCsvLine(line) {
-  const regex = /\"((?:[^\"]|\")*)\"|([^,]+)/g;
-  const out = [];
-  let match;
-  while ((match = regex.exec(line))) {
-    out.push(match[1] !== undefined ? match[1] : match[2]);
-  }
-  return out;
-}
 // =================== VIEW TOGGLE ===================
 document.getElementById('viewToggleBtn').onclick = () => {
   viewMode = (viewMode === 'card') ? 'grid' : 'card';
@@ -725,6 +771,22 @@ function updateViewToggleBtn() {
   renderGrid();
   renderAnalytics();
 })();
+
+// ========== Edit/Delete from Card or Modal ==========
+function editCapability(id) {
+  const cap = capabilities.find(c => c.id === id);
+  if (!cap) return;
+  closeDetailsModal();
+  showFormModal(cap);
+}
+function deleteCapability(id) {
+  if (!confirm('Are you sure you want to delete this capability?')) return;
+  closeDetailsModal();
+  removeCapability(id);
+}
+// Patch quick action buttons in cards/grid to use new handlers
+window.editCapability = editCapability;
+window.deleteCapability = deleteCapability;
 </script>
 </body>
 </html>
