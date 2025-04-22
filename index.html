@@ -41,6 +41,7 @@
       <button id="importCsvBtn" class="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-sm flex items-center gap-1"><i class="fa-solid fa-file-import"></i> Import CSV</button>
       <input type="file" id="hiddenFileInput" class="hidden" accept=".json,.csv" />
       <button id="changeDataModeBtn" class="px-3 py-1 rounded bg-gray-400 hover:bg-gray-500 text-white text-sm flex items-center gap-1"><i class="fa-solid fa-database"></i> Change Data Mode</button>
+      <span id="dataModeIndicator" class="ml-2 px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-xs text-gray-800 dark:text-gray-200">Mode: ...</span>
     </div>
   </div>
   <div class="flex flex-wrap gap-2 items-center mt-2">
@@ -990,86 +991,59 @@ async function pickFileOrFolder(type) {
   }
 }
 async function selectDataMode(mode) {
-  try {
-    dataMode = mode;
-    localStorage.setItem(DATA_MODE_KEY, dataMode);
-    fileHandle = null;
-    if (dataMode === 'csv' || dataMode === 'json' || dataMode === 'txt') {
-      fileHandle = await pickFileOrFolder(dataMode);
-      if (!fileHandle) {
-        dataMode = 'local';
-        localStorage.setItem(DATA_MODE_KEY, dataMode);
-        showDataModeError('File access not supported or cancelled. Using Local Storage.');
-        showToast('File access not supported. Using Local Storage.');
-      }
+  const prevMode = dataMode;
+  const prevFileHandle = fileHandle;
+  let newMode = mode;
+  let newFileHandle = null;
+  if (newMode === 'csv' || newMode === 'json' || newMode === 'txt') {
+    newFileHandle = await pickFileOrFolder(newMode);
+    if (!newFileHandle) {
+      // Cancelled: keep previous mode and fileHandle
+      showDataModeError('Cancelled. Keeping previous data mode.');
+      closeDataModeModal();
+      updateDataModeIndicator();
+      showToast('Data mode unchanged.');
+      return;
     }
-    closeDataModeModal();
-    await DataProvider.load();
-    renderGrid();
-    renderAnalytics();
-    showToast('Data mode set: ' + dataMode.toUpperCase());
-    console.log('[DataMode] Set to', dataMode);
-  } catch (err) {
-    showDataModeError('Failed to set data mode: ' + (err.message || err));
-    console.error('Data mode selection error:', err);
   }
-}
-
-// =================== CRUD PATCH ===================
-function addCapability(cap) {
-  capabilities.push(cap);
-  DataProvider.save();
+  // Only update if not cancelled
+  dataMode = newMode;
+  fileHandle = newFileHandle;
+  localStorage.setItem(DATA_MODE_KEY, dataMode);
+  closeDataModeModal();
+  await DataProvider.load();
   renderGrid();
   renderAnalytics();
-  showToast('Capability added!');
-}
-function updateCapability(id, updated) {
-  const idx = capabilities.findIndex(c => c.id === id);
-  if (idx > -1) {
-    capabilities[idx] = { ...capabilities[idx], ...updated, lastUpdated: nowISO() };
-    DataProvider.save();
-    renderGrid();
-    renderAnalytics();
-    showToast('Capability updated!');
-  }
-}
-function removeCapability(id) {
-  capabilities = capabilities.filter(c => c.id !== id);
-  DataProvider.save();
-  renderGrid();
-  renderAnalytics();
-  showToast('Capability deleted!');
+  updateDataModeIndicator();
+  showToast('Data mode set: ' + (dataMode === 'local' ? 'Local Storage' : dataMode.toUpperCase() + ' File'));
 }
 
-// =================== TOOLBAR BUTTON PATCH ===================
-function ensureToolbarButton() {
-  const toolbar = document.querySelector('header .flex.gap-2.items-center');
-  if (toolbar && !document.getElementById('changeDataModeBtn')) {
-    const btn = document.createElement('button');
-    btn.id = 'changeDataModeBtn';
-    btn.className = 'px-3 py-1 rounded bg-gray-400 hover:bg-gray-500 text-white text-sm flex items-center gap-1';
-    btn.innerHTML = '<i class="fa-solid fa-database"></i> Change Data Mode';
-    toolbar.appendChild(btn);
-  }
-  attachChangeDataModeBtnListener();
+function updateDataModeIndicator() {
+  const indicator = document.getElementById('dataModeIndicator');
+  let label = 'Unknown';
+  const mode = (dataMode || '').toLowerCase();
+  if (mode === 'local' || mode === 'localstorage' || mode === 'local-storage') label = 'Local Storage';
+  else if (mode === 'csv') label = 'CSV File';
+  else if (mode === 'json') label = 'JSON File';
+  else if (mode === 'txt' || mode === 'text') label = 'Text File';
+  indicator.textContent = 'Mode: ' + label;
 }
 
-// =================== INITIALIZATION ===================
+// Patch initialization logic to update the indicator correctly.
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-    ensureToolbarButton();
+    attachChangeDataModeBtnListener();
     attachDataModeListeners();
     dataMode = localStorage.getItem(DATA_MODE_KEY) || null;
-    // Always show modal if no mode, or if file mode but no handle
     if (!dataMode || ((dataMode === 'csv' || dataMode === 'json' || dataMode === 'txt') && !fileHandle)) {
       setTimeout(showDataModeModal, 300);
-      console.log('[Init] Showing modal because dataMode is', dataMode, 'and fileHandle is', fileHandle);
+      updateDataModeIndicator();
       return;
     }
     await DataProvider.load();
     renderGrid();
     renderAnalytics();
-    console.log('[Init] Loaded data for mode', dataMode);
+    updateDataModeIndicator();
   } catch (err) {
     showDataModeError('Initialization error: ' + (err.message || err));
     console.error('Modal startup error:', err);
