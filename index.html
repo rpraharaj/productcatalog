@@ -83,6 +83,18 @@
     <label class="block font-semibold mb-1">Tags</label>
     <input id="filterTags" type="text" placeholder="Comma-separated tags" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
   </div>
+  <div class="mb-4">
+    <label class="block font-semibold mb-1">Function</label>
+    <input id="filterFunction" type="text" placeholder="Function name" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
+  </div>
+  <div class="mb-4">
+    <label class="block font-semibold mb-1">Module</label>
+    <input id="filterModule" type="text" placeholder="Module name" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
+  </div>
+  <div class="mb-4">
+    <label class="block font-semibold mb-1">Category</label>
+    <input id="filterCategory" type="text" placeholder="Category name" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
+  </div>
   <button id="applyFiltersBtn" class="w-full py-2 rounded bg-blue-500 hover:bg-blue-600 text-white font-semibold">Apply Filters</button>
 </aside>
 <!-- ================= MAIN CONTENT ================= -->
@@ -101,17 +113,31 @@
 </button>
 <!-- ================= Capability Details Modal ================= -->
 <div id="capabilityDetailsModal" class="fixed inset-0 z-50 bg-black/40 hidden flex items-center justify-center">
-  <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg max-w-lg w-full p-6 relative">
-    <button id="closeDetailsModal" class="absolute top-3 right-3 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100"><i class="fa-solid fa-xmark text-2xl"></i></button>
-    <div id="capabilityDetailsContent"></div>
+  <div class="relative w-full max-w-2xl mx-2 my-8 bg-white dark:bg-gray-900 rounded-lg shadow-lg flex flex-col max-h-[90vh]">
+    <!-- Header -->
+    <div class="sticky top-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-t-lg z-10">
+      <h3 id="detailsModalTitle" class="text-xl font-bold">Capability Details</h3>
+      <button id="closeDetailsModal" class="text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400 rounded-full p-2"><i class="fa-solid fa-xmark text-2xl"></i></button>
+    </div>
+    <!-- Content -->
+    <div id="capabilityDetailsContent" class="overflow-y-auto px-6 py-4 flex-1 space-y-4"></div>
+    <!-- Footer (Edit/Delete) -->
+    <div class="sticky bottom-0 bg-white dark:bg-gray-900 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-2 justify-end rounded-b-lg z-10">
+      <button id="detailsEditBtn" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+      <button id="detailsDeleteBtn" class="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-semibold flex items-center gap-2"><i class="fa-solid fa-trash"></i> Delete</button>
+    </div>
   </div>
 </div>
 <!-- ================= Add/Edit Capability Modal ================= -->
 <div id="capabilityFormModal" class="fixed inset-0 z-50 bg-black/40 hidden flex items-center justify-center">
-  <div class="bg-white dark:bg-gray-900 rounded-lg shadow-lg max-w-md w-full p-6 relative">
-    <button id="closeFormModal" class="absolute top-3 right-3 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100"><i class="fa-solid fa-xmark text-2xl"></i></button>
-    <form id="capabilityForm" autocomplete="off" class="space-y-4">
-      <h2 id="formTitle" class="text-xl font-semibold mb-2">Add Capability</h2>
+  <div class="relative w-full max-w-lg mx-2 my-8 bg-white dark:bg-gray-900 rounded-lg shadow-lg flex flex-col max-h-[90vh]">
+    <!-- Header -->
+    <div class="sticky top-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-t-lg z-10">
+      <h2 id="formTitle" class="text-xl font-semibold">Add Capability</h2>
+      <button id="closeFormModal" class="text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400 rounded-full p-2"><i class="fa-solid fa-xmark text-2xl"></i></button>
+    </div>
+    <!-- Content -->
+    <form id="capabilityForm" autocomplete="off" class="overflow-y-auto px-6 py-4 flex-1 space-y-4">
       <div>
         <label class="block font-semibold mb-1">Title <span class="text-red-500">*</span></label>
         <input name="title" type="text" required minlength="3" maxlength="100" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
@@ -142,6 +168,18 @@
         </select>
       </div>
       <div>
+        <label class="block font-semibold mb-1">Function <span class="text-red-500">*</span></label>
+        <input name="function" type="text" required maxlength="100" placeholder="e.g. Customer Management" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">Module <span class="text-red-500">*</span></label>
+        <input name="module" type="text" required maxlength="100" placeholder="e.g. User Profiles" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">Category <span class="text-red-500">*</span></label>
+        <input name="category" type="text" required maxlength="100" placeholder="e.g. Access Control" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
+      </div>
+      <div>
         <label class="block font-semibold mb-1">Tags</label>
         <input name="tags" type="text" placeholder="Comma-separated tags" class="w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"/>
       </div>
@@ -157,7 +195,7 @@
           <option value="High">High</option>
         </select>
       </div>
-      <button type="submit" class="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold">Save</button>
+      <button type="submit" class="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold sticky bottom-0">Save</button>
     </form>
   </div>
 </div>
@@ -168,7 +206,7 @@
 // =================== DATA MODEL & STORAGE ===================
 const STORAGE_KEY = 'product_catalog_capabilities_v1';
 let capabilities = [];
-let filters = { status: '', domain: '', tags: '' };
+let filters = { status: '', domain: '', tags: '', function: '', module: '', category: '' };
 let searchQuery = '';
 let editingId = null;
 let viewMode = localStorage.getItem('catalog_view_mode') || 'card'; // 'card' or 'grid'
@@ -249,12 +287,21 @@ function filterAndSearch(list) {
       const tagsArr = filters.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
       if (tagsArr.length && !tagsArr.some(tag => cap.tags.map(t => t.toLowerCase()).includes(tag))) return false;
     }
+    // Function
+    if (filters.function && !cap.function.toLowerCase().includes(filters.function.toLowerCase())) return false;
+    // Module
+    if (filters.module && !cap.module.toLowerCase().includes(filters.module.toLowerCase())) return false;
+    // Category
+    if (filters.category && !cap.category.toLowerCase().includes(filters.category.toLowerCase())) return false;
     // Search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       if (!cap.title.toLowerCase().includes(q)
         && !cap.tags.join(',').toLowerCase().includes(q)
-        && !cap.owners.join(',').toLowerCase().includes(q)) return false;
+        && !cap.owners.join(',').toLowerCase().includes(q)
+        && !cap.function.toLowerCase().includes(q)
+        && !cap.module.toLowerCase().includes(q)
+        && !cap.category.toLowerCase().includes(q)) return false;
     }
     return true;
   });
@@ -289,6 +336,9 @@ function renderGrid() {
       + '<th class="p-2">Title</th>'
       + '<th class="p-2">Status</th>'
       + '<th class="p-2">Domain</th>'
+      + '<th class="p-2">Function</th>'
+      + '<th class="p-2">Module</th>'
+      + '<th class="p-2">Category</th>'
       + '<th class="p-2">Tags</th>'
       + '<th class="p-2">Owners</th>'
       + '<th class="p-2">Priority</th>'
@@ -329,6 +379,7 @@ function renderCard(cap) {
       <span class="font-semibold text-lg">${cap.title}</span>
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded ${statusBadgeColor(cap.status)} text-xs font-semibold">${cap.status}</span>
     </div>
+    <div class="text-xs text-gray-500 mb-1">${cap.function} &gt; ${cap.module} &gt; ${cap.category}</div>
     <div class="flex flex-wrap gap-1 mb-2">${cap.tags.map(tag => `<span class="px-2 py-0.5 rounded ${tagColor(tag)} text-xs">${tag}</span>`).join('')}</div>
     <div class="flex items-center gap-2 text-xs text-gray-500">
       <span><i class="fa-solid fa-user"></i> ${cap.owners.join(', ')}</span>
@@ -349,6 +400,9 @@ function renderGridRow(cap) {
     <td class="p-2 cursor-pointer font-semibold" onclick="showDetails('${cap.id}')">${cap.title}</td>
     <td class="p-2"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded ${statusBadgeColor(cap.status)} text-xs font-semibold">${cap.status}</span></td>
     <td class="p-2">${cap.domain}</td>
+    <td class="p-2">${cap.function}</td>
+    <td class="p-2">${cap.module}</td>
+    <td class="p-2">${cap.category}</td>
     <td class="p-2">${cap.tags.map(tag => `<span class="px-2 py-0.5 rounded ${tagColor(tag)} text-xs">${tag}</span>`).join('')}</td>
     <td class="p-2">${cap.owners.join(', ')}</td>
     <td class="p-2"><span class="${priorityColor(cap.priority)} text-xs">${cap.priority}</span></td>
@@ -397,10 +451,15 @@ function showFormModal(editingCap = null) {
     form.description.value = editingCap.description;
     form.status.value = editingCap.status;
     form.domain.value = editingCap.domain;
+    form.function.value = editingCap.function;
+    form.module.value = editingCap.module;
+    form.category.value = editingCap.category;
     form.tags.value = editingCap.tags.join(', ');
     form.owners.value = editingCap.owners.join(', ');
     form.priority.value = editingCap.priority;
   }
+  // Focus the first input
+  setTimeout(() => { form.querySelector('input,textarea,select')?.focus(); }, 100);
 }
 function closeFormModal() {
   document.getElementById('capabilityFormModal').classList.add('hidden');
@@ -412,24 +471,71 @@ function showDetails(id) {
   if (!cap) return;
   document.getElementById('capabilityDetailsModal').classList.remove('hidden');
   document.body.classList.add('overflow-hidden');
-  document.getElementById('capabilityDetailsContent').innerHTML = renderDetails(cap);
+  // Render all details with nice formatting
+  document.getElementById('capabilityDetailsContent').innerHTML = `
+    <div class="space-y-2">
+      <div class="flex flex-wrap gap-2 items-center">
+        <span class="text-2xl font-bold">${cap.title}</span>
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded ${statusBadgeColor(cap.status)} text-xs font-semibold">${cap.status}</span>
+      </div>
+      <div class="text-sm text-gray-500 mb-2"><b>Hierarchy:</b> ${cap.function} &gt; ${cap.module} &gt; ${cap.category}</div>
+      <div class="mb-2 text-gray-700 dark:text-gray-200 whitespace-pre-line"><b>Description:</b> ${cap.description}</div>
+      <div class="flex flex-wrap gap-1 mb-2"><b>Tags:</b> ${cap.tags.map(tag => `<span class="px-2 py-0.5 rounded ${tagColor(tag)} text-xs">${tag}</span>`).join('')}</div>
+      <div class="flex flex-wrap gap-2 text-sm mb-2">
+        <span><b>Domain:</b> ${cap.domain}</span>
+        <span><b>Priority:</b> <span class="${priorityColor(cap.priority)}">${cap.priority}</span></span>
+      </div>
+      <div class="flex flex-wrap gap-2 text-sm mb-2">
+        <span><b>Owners:</b> ${cap.owners.join(', ')}</span>
+      </div>
+      <div class="text-xs text-gray-500 mb-2">Last updated: ${formatDate(cap.lastUpdated)}</div>
+    </div>
+  `;
+  // Setup Edit/Delete buttons
+  document.getElementById('detailsEditBtn').onclick = () => { closeDetailsModal(); editCapability(id); };
+  document.getElementById('detailsDeleteBtn').onclick = () => { closeDetailsModal(); deleteCapability(id); };
 }
 function closeDetailsModal() {
   document.getElementById('capabilityDetailsModal').classList.add('hidden');
   document.body.classList.remove('overflow-hidden');
 }
-// ========== Edit/Delete from Card or Modal ==========
-function editCapability(id, fromDetails = false) {
-  const cap = capabilities.find(c => c.id === id);
-  if (!cap) return;
-  if (fromDetails) closeDetailsModal();
-  showFormModal(cap);
+// Allow closing modals by clicking overlay
+[...document.querySelectorAll('#capabilityFormModal, #capabilityDetailsModal')].forEach(modal => {
+  modal.addEventListener('mousedown', e => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+  });
+});
+// Trap focus inside modal for accessibility
+function trapFocus(modalId) {
+  const modal = document.getElementById(modalId);
+  const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  modal.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    if (e.key === 'Escape') {
+      modal.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+  });
 }
-function deleteCapability(id, fromDetails = false) {
-  if (!confirm('Are you sure you want to delete this capability?')) return;
-  if (fromDetails) closeDetailsModal();
-  removeCapability(id);
-}
+trapFocus('capabilityFormModal');
+trapFocus('capabilityDetailsModal');
 // =================== FORM SUBMISSION ===================
 document.getElementById('capabilityForm').onsubmit = function(e) {
   e.preventDefault();
@@ -440,13 +546,16 @@ document.getElementById('capabilityForm').onsubmit = function(e) {
     description: form.description.value.trim(),
     status: form.status.value,
     domain: form.domain.value,
+    function: form.function.value.trim(),
+    module: form.module.value.trim(),
+    category: form.category.value.trim(),
     tags: form.tags.value.split(',').map(t => t.trim()).filter(Boolean),
     owners: form.owners.value.split(',').map(t => t.trim()).filter(Boolean),
     lastUpdated: nowISO(),
     priority: form.priority.value
   };
-  if (!cap.title || !cap.description) {
-    showToast('Title and Description are required.');
+  if (!cap.title || !cap.description || !cap.function || !cap.module || !cap.category) {
+    showToast('Title, Description, Function, Module, and Category are required.');
     return;
   }
   if (editingId) {
@@ -470,6 +579,9 @@ document.getElementById('applyFiltersBtn').onclick = () => {
   filters.status = document.getElementById('filterStatus').value;
   filters.domain = document.getElementById('filterDomain').value;
   filters.tags = document.getElementById('filterTags').value;
+  filters.function = document.getElementById('filterFunction').value;
+  filters.module = document.getElementById('filterModule').value;
+  filters.category = document.getElementById('filterCategory').value;
   renderGrid();
   document.getElementById('filterPanel').classList.add('-translate-x-full');
 };
@@ -541,10 +653,10 @@ document.getElementById('hiddenFileInput').onchange = function(e) {
 };
 // ========== Export/Import CSV ==========
 document.getElementById('exportCsvBtn').onclick = () => {
-  const headers = ['id','title','description','status','domain','tags','owners','lastUpdated','priority'];
+  const headers = ['id','title','description','status','domain','function','module','category','tags','owners','lastUpdated','priority'];
   let csv = headers.join(',') + '\n';
   for (const cap of capabilities) {
-    csv += [cap.id,cap.title.replace(/"/g,'""'),cap.description.replace(/"/g,'""'),cap.status,cap.domain,cap.tags.join('|'),cap.owners.join('|'),cap.lastUpdated,cap.priority].map(v => '"'+v.replace(/\n/g,' ')+'"').join(',') + '\n';
+    csv += [cap.id,cap.title.replace(/"/g,'""'),cap.description.replace(/"/g,'""'),cap.status,cap.domain,cap.function,cap.module,cap.category,cap.tags.join('|'),cap.owners.join('|'),cap.lastUpdated,cap.priority].map(v => '"'+v.replace(/\n/g,' ')+'"').join(',') + '\n';
   }
   const blob = new Blob([csv], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
