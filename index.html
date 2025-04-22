@@ -40,6 +40,7 @@
       <button id="exportCsvBtn" class="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-sm flex items-center gap-1"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
       <button id="importCsvBtn" class="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-sm flex items-center gap-1"><i class="fa-solid fa-file-import"></i> Import CSV</button>
       <input type="file" id="hiddenFileInput" class="hidden" accept=".json,.csv" />
+      <button id="changeDataModeBtn" class="px-3 py-1 rounded bg-gray-400 hover:bg-gray-500 text-white text-sm flex items-center gap-1"><i class="fa-solid fa-database"></i> Change Data Mode</button>
     </div>
   </div>
   <div class="flex flex-wrap gap-2 items-center mt-2">
@@ -201,6 +202,24 @@
 </div>
 <!-- ================= Toast Notification ================= -->
 <div id="toast" class="fixed bottom-24 right-6 z-50 hidden px-4 py-2 rounded bg-gray-800 text-white shadow-lg"></div>
+<!-- ================= Data Management Mode Modal ================= -->
+<div id="dataModeModal" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center hidden">
+  <div class="w-full max-w-md mx-2 my-8 bg-white dark:bg-gray-900 rounded-lg shadow-lg flex flex-col max-h-[90vh]">
+    <div class="sticky top-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-t-lg z-10">
+      <h2 class="text-xl font-semibold">Choose Data Management Mode</h2>
+    </div>
+    <div class="px-6 py-4 flex-1 space-y-4">
+      <p class="text-gray-700 dark:text-gray-200">How would you like to manage your Product Catalog data?</p>
+      <div id="dataModeError" class="hidden text-red-600 text-sm mb-2"></div>
+      <div class="space-y-3">
+        <button id="modeLocalStorage" class="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold">Local Storage (Browser)</button>
+        <button id="modeCSV" class="w-full py-2 rounded bg-green-600 hover:bg-green-700 text-white font-semibold">CSV File on Device</button>
+        <button id="modeJSON" class="w-full py-2 rounded bg-yellow-600 hover:bg-yellow-700 text-white font-semibold">JSON File on Device</button>
+        <button id="modeTXT" class="w-full py-2 rounded bg-gray-600 hover:bg-gray-700 text-white font-semibold">Text File on Device</button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- ================= MAIN JS ================= -->
 <script>
 // =================== DATA MODEL & STORAGE ===================
@@ -238,6 +257,103 @@ function loadFromStorage() {
   const data = localStorage.getItem(STORAGE_KEY);
   if (data) capabilities = JSON.parse(data);
 }
+
+// ========== Data Provider Abstraction ==========
+const DataProvider = {
+  async load() {
+    if (dataMode === 'local') {
+      loadFromStorage();
+      return capabilities;
+    } else if (dataMode === 'csv') {
+      if (!fileHandle) return [];
+      const file = await fileHandle.getFile();
+      const text = await file.text();
+      importFromCsv(text);
+      return capabilities;
+    } else if (dataMode === 'json') {
+      if (!fileHandle) return [];
+      const file = await fileHandle.getFile();
+      const text = await file.text();
+      let arr = JSON.parse(text);
+      arr = arr.map(obj => ({
+        id: obj.id || uuidv4(),
+        title: obj.title || '',
+        description: obj.description || '',
+        status: obj.status || 'Idea',
+        domain: obj.domain || '',
+        function: obj.function || '',
+        module: obj.module || '',
+        category: obj.category || '',
+        tags: Array.isArray(obj.tags) ? obj.tags : (typeof obj.tags === 'string' && obj.tags ? obj.tags.split('|').map(t=>t.trim()).filter(Boolean) : []),
+        owners: Array.isArray(obj.owners) ? obj.owners : (typeof obj.owners === 'string' && obj.owners ? obj.owners.split('|').map(t=>t.trim()).filter(Boolean) : []),
+        lastUpdated: obj.lastUpdated || nowISO(),
+        priority: obj.priority || 'Medium'
+      }));
+      capabilities = arr;
+      renderGrid();
+      renderAnalytics();
+      return capabilities;
+    } else if (dataMode === 'txt') {
+      if (!fileHandle) return [];
+      const file = await fileHandle.getFile();
+      const text = await file.text();
+      // Each line = JSON for a capability
+      let arr = text.split('\n').filter(Boolean).map(line => {
+        try { return JSON.parse(line); } catch { return null; }
+      }).filter(Boolean);
+      arr = arr.map(obj => ({
+        id: obj.id || uuidv4(),
+        title: obj.title || '',
+        description: obj.description || '',
+        status: obj.status || 'Idea',
+        domain: obj.domain || '',
+        function: obj.function || '',
+        module: obj.module || '',
+        category: obj.category || '',
+        tags: Array.isArray(obj.tags) ? obj.tags : (typeof obj.tags === 'string' && obj.tags ? obj.tags.split('|').map(t=>t.trim()).filter(Boolean) : []),
+        owners: Array.isArray(obj.owners) ? obj.owners : (typeof obj.owners === 'string' && obj.owners ? obj.owners.split('|').map(t=>t.trim()).filter(Boolean) : []),
+        lastUpdated: obj.lastUpdated || nowISO(),
+        priority: obj.priority || 'Medium'
+      }));
+      capabilities = arr;
+      renderGrid();
+      renderAnalytics();
+      return capabilities;
+    }
+  },
+  async save() {
+    if (dataMode === 'local') {
+      saveToStorage();
+    } else if (dataMode === 'csv') {
+      if (!fileHandle) return;
+      const headers = ['id','title','description','status','domain','function','module','category','tags','owners','lastUpdated','priority'];
+      let csv = headers.join(',') + '\n';
+      for (const cap of capabilities) {
+        csv += headers.map(h => {
+          let val = cap[h];
+          if (Array.isArray(val)) val = val.join('|');
+          if (typeof val === 'undefined' || val === null) val = '';
+          val = String(val).replace(/"/g,'""').replace(/\n/g,' ');
+          return '"'+val+'"';
+        }).join(',') + '\n';
+      }
+      const writable = await fileHandle.createWritable();
+      await writable.write(csv);
+      await writable.close();
+    } else if (dataMode === 'json') {
+      if (!fileHandle) return;
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(capabilities,null,2));
+      await writable.close();
+    } else if (dataMode === 'txt') {
+      if (!fileHandle) return;
+      const writable = await fileHandle.createWritable();
+      await writable.write(capabilities.map(c => JSON.stringify(c)).join('\n'));
+      await writable.close();
+    }
+  }
+};
+
 // ========== Status Badge Color ==========
 function statusBadgeColor(status) {
   switch(status) {
@@ -415,7 +531,7 @@ function renderGridRow(cap) {
 // =================== CRUD LOGIC ===================
 function addCapability(cap) {
   capabilities.push(cap);
-  saveToStorage();
+  DataProvider.save();
   renderGrid();
   renderAnalytics();
   showToast('Capability added!');
@@ -424,7 +540,7 @@ function updateCapability(id, updated) {
   const idx = capabilities.findIndex(c => c.id === id);
   if (idx > -1) {
     capabilities[idx] = { ...capabilities[idx], ...updated, lastUpdated: nowISO() };
-    saveToStorage();
+    DataProvider.save();
     renderGrid();
     renderAnalytics();
     showToast('Capability updated!');
@@ -432,7 +548,7 @@ function updateCapability(id, updated) {
 }
 function removeCapability(id) {
   capabilities = capabilities.filter(c => c.id !== id);
-  saveToStorage();
+  DataProvider.save();
   renderGrid();
   renderAnalytics();
   showToast('Capability deleted!');
@@ -668,7 +784,7 @@ function importFromCsv(text) {
     });
   }
   capabilities = arr;
-  saveToStorage();
+  DataProvider.save();
   renderGrid();
   renderAnalytics();
   showToast('Imported CSV!');
@@ -732,7 +848,7 @@ document.getElementById('hiddenFileInput').onchange = function(e) {
           priority: obj.priority || 'Medium'
         }));
         capabilities = arr;
-        saveToStorage();
+        DataProvider.save();
         renderGrid();
         renderAnalytics();
         showToast('Imported JSON!');
@@ -766,7 +882,7 @@ function updateViewToggleBtn() {
 }
 // =================== INIT ===================
 (function init() {
-  loadFromStorage();
+  DataProvider.load();
   updateViewToggleBtn();
   renderGrid();
   renderAnalytics();
@@ -787,6 +903,178 @@ function deleteCapability(id) {
 // Patch quick action buttons in cards/grid to use new handlers
 window.editCapability = editCapability;
 window.deleteCapability = deleteCapability;
+
+// =================== DATA MODE ABSTRACTION ===================
+const DATA_MODE_KEY = 'product_catalog_data_mode';
+const DATA_FILE_HANDLE_KEY = 'product_catalog_file_handle';
+let dataMode = localStorage.getItem(DATA_MODE_KEY) || null; // 'local','csv','json','txt'
+let fileHandle = null;
+let folderHandle = null;
+
+async function pickFileOrFolder(type) {
+  if ('showDirectoryPicker' in window && type === 'folder') {
+    folderHandle = await window.showDirectoryPicker();
+    return folderHandle;
+  } else if ('showSaveFilePicker' in window && (type === 'csv' || type === 'json' || type === 'txt')) {
+    let suggestedName = 'product_catalog.' + type;
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName,
+      types: [{
+        description: type.toUpperCase() + ' File',
+        accept: { ['text/' + (type==='txt'?'plain':type)]: ['.'+type] }
+      }]
+    });
+    return fileHandle;
+  } else {
+    alert('Your browser does not support direct file/folder access. Please use Local Storage mode or Import/Export.');
+    return null;
+  }
+}
+
+// ========== Data Mode Modal Logic ==========
+function attachDataModeListeners() {
+  ['modeLocalStorage','modeCSV','modeJSON','modeTXT'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.onclick = () => selectDataMode(id.replace('mode','').toLowerCase());
+  });
+}
+function attachChangeDataModeBtnListener() {
+  const btn = document.getElementById('changeDataModeBtn');
+  if (btn) btn.onclick = () => showDataModeModal();
+}
+function showDataModeModal() {
+  const modal = document.getElementById('dataModeModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    attachDataModeListeners();
+    console.log('[Modal] Data mode modal shown');
+  }
+}
+function closeDataModeModal() {
+  const modal = document.getElementById('dataModeModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    console.log('[Modal] Data mode modal closed');
+  }
+}
+function showDataModeError(msg) {
+  const errDiv = document.getElementById('dataModeError');
+  if (errDiv) {
+    errDiv.textContent = msg;
+    errDiv.classList.remove('hidden');
+    console.error('[Modal] ERROR:', msg);
+  }
+}
+async function pickFileOrFolder(type) {
+  if ('showSaveFilePicker' in window && (type === 'csv' || type === 'json' || type === 'txt')) {
+    let suggestedName = 'product_catalog.' + type;
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: type.toUpperCase() + ' File',
+          accept: { ['text/' + (type==='txt'?'plain':type)]: ['.'+type] }
+        }]
+      });
+      console.log('[FilePicker] Got file handle:', handle);
+      return handle;
+    } catch (err) {
+      console.error('[FilePicker] File picker cancelled or failed:', err);
+      return null;
+    }
+  } else {
+    showDataModeError('File access not supported in this browser. Using Local Storage.');
+    return null;
+  }
+}
+async function selectDataMode(mode) {
+  try {
+    dataMode = mode;
+    localStorage.setItem(DATA_MODE_KEY, dataMode);
+    fileHandle = null;
+    if (dataMode === 'csv' || dataMode === 'json' || dataMode === 'txt') {
+      fileHandle = await pickFileOrFolder(dataMode);
+      if (!fileHandle) {
+        dataMode = 'local';
+        localStorage.setItem(DATA_MODE_KEY, dataMode);
+        showDataModeError('File access not supported or cancelled. Using Local Storage.');
+        showToast('File access not supported. Using Local Storage.');
+      }
+    }
+    closeDataModeModal();
+    await DataProvider.load();
+    renderGrid();
+    renderAnalytics();
+    showToast('Data mode set: ' + dataMode.toUpperCase());
+    console.log('[DataMode] Set to', dataMode);
+  } catch (err) {
+    showDataModeError('Failed to set data mode: ' + (err.message || err));
+    console.error('Data mode selection error:', err);
+  }
+}
+
+// =================== CRUD PATCH ===================
+function addCapability(cap) {
+  capabilities.push(cap);
+  DataProvider.save();
+  renderGrid();
+  renderAnalytics();
+  showToast('Capability added!');
+}
+function updateCapability(id, updated) {
+  const idx = capabilities.findIndex(c => c.id === id);
+  if (idx > -1) {
+    capabilities[idx] = { ...capabilities[idx], ...updated, lastUpdated: nowISO() };
+    DataProvider.save();
+    renderGrid();
+    renderAnalytics();
+    showToast('Capability updated!');
+  }
+}
+function removeCapability(id) {
+  capabilities = capabilities.filter(c => c.id !== id);
+  DataProvider.save();
+  renderGrid();
+  renderAnalytics();
+  showToast('Capability deleted!');
+}
+
+// =================== TOOLBAR BUTTON PATCH ===================
+function ensureToolbarButton() {
+  const toolbar = document.querySelector('header .flex.gap-2.items-center');
+  if (toolbar && !document.getElementById('changeDataModeBtn')) {
+    const btn = document.createElement('button');
+    btn.id = 'changeDataModeBtn';
+    btn.className = 'px-3 py-1 rounded bg-gray-400 hover:bg-gray-500 text-white text-sm flex items-center gap-1';
+    btn.innerHTML = '<i class="fa-solid fa-database"></i> Change Data Mode';
+    toolbar.appendChild(btn);
+  }
+  attachChangeDataModeBtnListener();
+}
+
+// =================== INITIALIZATION ===================
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    ensureToolbarButton();
+    attachDataModeListeners();
+    dataMode = localStorage.getItem(DATA_MODE_KEY) || null;
+    // Always show modal if no mode, or if file mode but no handle
+    if (!dataMode || ((dataMode === 'csv' || dataMode === 'json' || dataMode === 'txt') && !fileHandle)) {
+      setTimeout(showDataModeModal, 300);
+      console.log('[Init] Showing modal because dataMode is', dataMode, 'and fileHandle is', fileHandle);
+      return;
+    }
+    await DataProvider.load();
+    renderGrid();
+    renderAnalytics();
+    console.log('[Init] Loaded data for mode', dataMode);
+  } catch (err) {
+    showDataModeError('Initialization error: ' + (err.message || err));
+    console.error('Modal startup error:', err);
+  }
+});
 </script>
 </body>
 </html>
