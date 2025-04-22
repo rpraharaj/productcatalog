@@ -44,6 +44,10 @@
   </div>
   <div class="flex flex-wrap gap-2 items-center mt-2">
     <button id="filterPanelToggle" class="flex items-center gap-1 px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm"><i class="fa-solid fa-filter"></i> Filters</button>
+    <button id="viewToggleBtn" class="flex items-center gap-1 px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">
+      <i id="viewToggleIcon" class="fa-solid fa-table-cells"></i>
+      <span id="viewToggleText">Grid View</span>
+    </button>
     <input id="searchInput" type="text" placeholder="Search by title, tags, or owners..." class="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"/>
     <div id="analyticsSection" class="flex gap-2 ml-auto"></div>
   </div>
@@ -84,7 +88,7 @@
 <!-- ================= MAIN CONTENT ================= -->
 <main class="flex-1 p-4 pt-6 max-w-7xl mx-auto w-full">
   <!-- ============== Capability Map (Grid) ============== -->
-  <div id="capabilityGrid" class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"></div>
+  <div id="capabilityGrid" class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 transition-all duration-300"></div>
   <!-- ============== Empty State ============== -->
   <div id="emptyState" class="hidden flex flex-col items-center justify-center py-24 text-gray-400">
     <i class="fa-solid fa-box-open text-6xl mb-4"></i>
@@ -167,6 +171,7 @@ let capabilities = [];
 let filters = { status: '', domain: '', tags: '' };
 let searchQuery = '';
 let editingId = null;
+let viewMode = localStorage.getItem('catalog_view_mode') || 'card'; // 'card' or 'grid'
 
 // ========== Utility Functions ==========
 function uuidv4() {
@@ -278,17 +283,48 @@ function renderGrid() {
   empty.classList.add('hidden');
   const grouped = groupByDomain(filtered);
   let html = '';
-  for (const domain in grouped) {
-    html += `<div class="col-span-full mt-6 mb-1 flex items-center gap-2"><span class="font-bold text-lg">${domain}</span></div>`;
-    for (const cap of grouped[domain]) {
-      html += renderCard(cap);
+  if (viewMode === 'grid') {
+    // Grid View: compact tiles
+    html += '<div class="col-span-full w-full overflow-x-auto"><table class="min-w-full text-sm text-left"><thead><tr class="bg-gray-100 dark:bg-gray-700">'
+      + '<th class="p-2">Title</th>'
+      + '<th class="p-2">Status</th>'
+      + '<th class="p-2">Domain</th>'
+      + '<th class="p-2">Tags</th>'
+      + '<th class="p-2">Owners</th>'
+      + '<th class="p-2">Priority</th>'
+      + '<th class="p-2">Actions</th>'
+      + '</tr></thead><tbody>';
+    for (const domain in grouped) {
+      for (const cap of grouped[domain]) {
+        html += renderGridRow(cap);
+      }
     }
+    html += '</tbody></table></div>';
+    grid.className = 'block transition-all duration-300';
+  } else {
+    // Card View
+    for (const domain in grouped) {
+      html += `<div class="col-span-full mt-6 mb-1 flex items-center gap-2"><span class="font-bold text-lg">${domain}</span></div>`;
+      for (const cap of grouped[domain]) {
+        html += renderCard(cap);
+      }
+    }
+    grid.className = 'grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 transition-all duration-300';
   }
   grid.innerHTML = html;
+  // Animate cards on load
+  if (viewMode === 'card') {
+    setTimeout(() => {
+      document.querySelectorAll('.cap-anim').forEach((el, i) => {
+        el.classList.remove('opacity-0','translate-y-4');
+        el.classList.add('opacity-100','translate-y-0');
+      });
+    }, 10);
+  }
 }
 // <!-- Capability Card -->
 function renderCard(cap) {
-  return `<div class="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition p-4 flex flex-col gap-2 cursor-pointer group relative border border-gray-100 dark:border-gray-700" onclick="showDetails('${cap.id}')">
+  return `<div class="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-2xl transition-all duration-300 p-4 flex flex-col gap-2 cursor-pointer group relative border border-gray-100 dark:border-gray-700 cap-anim opacity-0 translate-y-4 hover:scale-[1.025] hover:-translate-y-1" onclick="showDetails('${cap.id}')">
     <div class="flex items-center justify-between">
       <span class="font-semibold text-lg">${cap.title}</span>
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded ${statusBadgeColor(cap.status)} text-xs font-semibold">${cap.status}</span>
@@ -307,28 +343,20 @@ function renderCard(cap) {
     </div>
   </div>`;
 }
-// ========== Capability Details Modal ==========
-function renderDetails(cap) {
-  return `<div>
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="text-2xl font-bold">${cap.title}</h3>
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded ${statusBadgeColor(cap.status)} text-xs font-semibold">${cap.status}</span>
-    </div>
-    <div class="mb-2 text-gray-700 dark:text-gray-200">${cap.description}</div>
-    <div class="flex flex-wrap gap-1 mb-2">${cap.tags.map(tag => `<span class="px-2 py-0.5 rounded ${tagColor(tag)} text-xs">${tag}</span>`).join('')}</div>
-    <div class="flex items-center gap-2 text-sm mb-2">
-      <span><b>Domain:</b> ${cap.domain}</span>
-      <span><b>Priority:</b> <span class="${priorityColor(cap.priority)}">${cap.priority}</span></span>
-    </div>
-    <div class="flex items-center gap-2 text-sm mb-2">
-      <span><b>Owners:</b> ${cap.owners.join(', ')}</span>
-    </div>
-    <div class="text-xs text-gray-500 mb-2">Last updated: ${formatDate(cap.lastUpdated)}</div>
-    <div class="flex gap-2 mt-4">
-      <button onclick="editCapability('${cap.id}',true)" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
-      <button onclick="deleteCapability('${cap.id}',true)" class="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-semibold"><i class="fa-solid fa-trash"></i> Delete</button>
-    </div>
-  </div>`;
+// <!-- Grid View Row -->
+function renderGridRow(cap) {
+  return `<tr class="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900 transition-all duration-200">
+    <td class="p-2 cursor-pointer font-semibold" onclick="showDetails('${cap.id}')">${cap.title}</td>
+    <td class="p-2"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded ${statusBadgeColor(cap.status)} text-xs font-semibold">${cap.status}</span></td>
+    <td class="p-2">${cap.domain}</td>
+    <td class="p-2">${cap.tags.map(tag => `<span class="px-2 py-0.5 rounded ${tagColor(tag)} text-xs">${tag}</span>`).join('')}</td>
+    <td class="p-2">${cap.owners.join(', ')}</td>
+    <td class="p-2"><span class="${priorityColor(cap.priority)} text-xs">${cap.priority}</span></td>
+    <td class="p-2 flex gap-1">
+      <button onclick="event.stopPropagation();editCapability('${cap.id}')" class="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900"><i class="fa-solid fa-pen-to-square text-blue-600"></i></button>
+      <button onclick="event.stopPropagation();deleteCapability('${cap.id}')" class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"><i class="fa-solid fa-trash text-red-600"></i></button>
+    </td>
+  </tr>`;
 }
 // =================== CRUD LOGIC ===================
 function addCapability(cap) {
@@ -560,9 +588,28 @@ function parseCsvLine(line) {
   }
   return out;
 }
+// =================== VIEW TOGGLE ===================
+document.getElementById('viewToggleBtn').onclick = () => {
+  viewMode = (viewMode === 'card') ? 'grid' : 'card';
+  localStorage.setItem('catalog_view_mode', viewMode);
+  updateViewToggleBtn();
+  renderGrid();
+};
+function updateViewToggleBtn() {
+  const icon = document.getElementById('viewToggleIcon');
+  const text = document.getElementById('viewToggleText');
+  if (viewMode === 'card') {
+    icon.className = 'fa-solid fa-table-cells';
+    text.textContent = 'Grid View';
+  } else {
+    icon.className = 'fa-solid fa-address-card';
+    text.textContent = 'Card View';
+  }
+}
 // =================== INIT ===================
 (function init() {
   loadFromStorage();
+  updateViewToggleBtn();
   renderGrid();
   renderAnalytics();
 })();
